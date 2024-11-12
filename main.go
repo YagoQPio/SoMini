@@ -1,155 +1,103 @@
 package main
 
 import (
-    "bufio"
-    "fmt"
-    "os"
-    "strings"
+	"fmt"
+	"os"
 )
 
-func readPassword() (string, error) {
-    // Função para ler a senha do usuário
-    fmt.Print("Digite a senha: ")
-    password, err := bufio.NewReader(os.Stdin).ReadString('\n')
-    if err != nil {
-       return "", err
-    }
-    return strings.TrimSpace(password), nil
-}
-
 func main() {
-    for {
-       fmt.Println("\nBem-vindo ao MiniSO")
-       fmt.Println("1. Cadastre-se")
-       fmt.Println("2. Login")
-       fmt.Println("3. Sair do SO")
-       fmt.Print("Escolha uma opção: ")
+	var choice int
+	users, err := loadUsers()
+	if err != nil {
+		fmt.Println("Erro ao carregar usuários:", err)
+		return
+	}
 
-       var choice int
-       fmt.Scanln(&choice)
+	for {
+		fmt.Println("Selecione uma opção:")
+		fmt.Println("1 - Login")
+		fmt.Println("2 - Registrar usuário")
+		fmt.Println("3 - Sair")
+		fmt.Print("Escolha: ")
+		fmt.Scanln(&choice)
 
-       switch choice {
-       case 1:
-          registerUser()
-       case 2:
-          user, err := loginUser()
-          if err != nil {
-             fmt.Println("Erro no login:", err)
-          } else {
-             fmt.Printf("Bem-vindo, %s!\n", user.Username)
-             runShell(user)
-          }
-       case 3:
-          fmt.Println("Saindo do SO...")
-          return
-       default:
-          fmt.Println("Opção inválida.")
-       }
-    }
+		switch choice {
+		case 1:
+			// Efetuar login
+			user, err := login(users)
+			if err != nil {
+				fmt.Println(err)
+			} else {
+				fmt.Println("Login bem-sucedido!")
+				// Após login, exibe o menu de operações de arquivos
+				fileOperationsMenu(user)
+			}
+
+		case 2:
+			// Registrar novo usuário
+			_, err := registerUser()
+			if err != nil {
+				fmt.Println("Erro no registro:", err)
+			} else {
+				fmt.Println("Usuário registrado com sucesso!")
+			}
+
+		case 3:
+			// Sair
+			fmt.Println("Saindo...")
+			os.Exit(0)
+
+		default:
+			fmt.Println("Opção inválida, tente novamente.")
+		}
+	}
 }
 
-func registerUser() {
-    var username, password string
-    fmt.Print("Criação de usuário - Digite o nome: ")
-    fmt.Scanln(&username)
-    password, err := readPassword()
-    if err != nil {
-       fmt.Println("Erro ao ler a senha:", err)
-       return
-    }
+// Menu para operações de arquivos
+func fileOperationsMenu(user *User) {
+	var choice int
+	for {
+		fmt.Println("\nSelecione uma operação de arquivo:")
+		fmt.Println("1 - Criar arquivo")
+		fmt.Println("2 - Criar diretório")
+		fmt.Println("3 - Listar arquivos")
+		fmt.Println("4 - Apagar arquivo")
+		fmt.Println("5 - Sair para o menu principal")
+		fmt.Print("Escolha: ")
+		fmt.Scanln(&choice)
 
-    user, err := createUser(username, password)
-    if err != nil {
-       fmt.Println("Erro ao criar o usuário:", err)
-       return
-    }
+		switch choice {
+		case 1:
+			// Criar arquivo
+			var filePath string
+			fmt.Print("Digite o caminho do arquivo a ser criado (exemplo: dir1/dir2/arquivo1.txt): ")
+			fmt.Scanln(&filePath)
+			createFile(user, filePath)
 
-    err = saveUser(*user)
-    if err != nil {
-       fmt.Println("Erro ao salvar o usuário:", err)
-    } else {
-       fmt.Println("Usuário cadastrado com sucesso!")
-    }
-}
+		case 2:
+			// Criar diretório
+			var dirPath string
+			fmt.Print("Digite o caminho do diretório a ser criado (exemplo: dir1/dir2): ")
+			fmt.Scanln(&dirPath)
+			createDir(user, dirPath)
 
-func loginUser() (*User, error) {
-    users, err := loadUsers()
-    if err != nil {
-       fmt.Println("Erro ao carregar usuários:", err)
-       os.Exit(1)
-    }
+		case 3:
+			// Listar arquivos
+			listFiles()
 
-    if len(users) == 0 {
-       fmt.Println("Nenhum usuário cadastrado. Por favor, cadastre-se primeiro.")
-       registerUser()
-       return nil, fmt.Errorf("cadastro realizado, por favor faça o login")
-    }
+		case 4:
+			// Apagar arquivo
+			var filePath string
+			fmt.Print("Digite o caminho do arquivo a ser apagado (exemplo: dir1/arquivo1.txt): ")
+			fmt.Scanln(&filePath)
+			deleteFile(user, filePath)
 
-    user, err := login(users)
-    if err != nil {
-       return nil, fmt.Errorf("usuário ou senha inválidos")
-    }
+		case 5:
+			// Voltar ao menu principal
+			return
 
-    return user, nil
-}
-
-func runShell(currentUser *User) {
-    reader := bufio.NewReader(os.Stdin)
-
-    for {
-       fmt.Print("> ")
-       command, err := reader.ReadString('\n')
-       if err != nil {
-          fmt.Println("Erro ao ler comando:", err)
-          continue
-       }
-       command = strings.TrimSpace(command)
-
-       if command == "sair" {
-          fmt.Println("Saindo da conta...")
-          return
-       }
-
-       executeCommand(command, currentUser)
-    }
-}
-
-func executeCommand(command string, currentUser *User) {
-    parts := strings.Fields(command)
-
-    if len(parts) == 0 {
-       fmt.Println("Comando vazio.")
-       return
-    }
-
-    switch parts[0] {
-    case "listar":
-       listFiles(currentUser)
-    case "criar":
-       if len(parts) < 3 {
-          fmt.Println("Uso: criar <arquivo/diretorio> <nome>")
-          return
-       }
-       if parts[1] == "arquivo" {
-          createFile(parts[2], currentUser)
-       } else if parts[1] == "diretorio" {
-          createDirectory(parts[2], currentUser)
-       } else {
-          fmt.Println("Comando inválido. Use 'arquivo' ou 'diretorio'.")
-       }
-    case "apagar":
-       if len(parts) < 3 {
-          fmt.Println("Uso: apagar <arquivo/diretorio> <nome>")
-          return
-       }
-       if parts[1] == "arquivo" {
-          deleteFile(parts[2], currentUser)
-       } else if parts[1] == "diretorio" {
-          deleteDirectory(parts[2], currentUser)
-       } else {
-          fmt.Println("Comando inválido. Use 'arquivo' ou 'diretorio'.")
-       }
-    default:
-       fmt.Println("Comando desconhecido:", parts[0])
-    }
+		default:
+			fmt.Println("Opção inválida, tente novamente.")
+		}
+	}
 }
