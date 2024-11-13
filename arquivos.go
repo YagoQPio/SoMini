@@ -3,67 +3,63 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 )
 
-// Função para criar um arquivo, criando diretórios no caminho se necessário
-func createFile(user *User, filePath string) {
-	// Cria diretórios no caminho, se não existirem
-	dir := filepath.Dir(filePath) // Extrai o diretório do caminho do arquivo
-	err := os.MkdirAll(dir, os.ModePerm)
+func criarArquivo(caminho string) {
+	// Criação do arquivo
+	file, err := os.Create(caminho)
 	if err != nil {
-		fmt.Println("Erro ao criar diretórios:", err)
-		return
-	}
-
-	// Cria o arquivo
-	file, err := os.Create(filePath)
-	if err != nil {
-		fmt.Println("Erro ao criar arquivo:", err)
+		fmt.Println("Erro ao criar o arquivo:", err)
 		return
 	}
 	defer file.Close()
 
-	fmt.Printf("Arquivo %s criado com sucesso!\n", filePath)
-}
-
-// Função para listar arquivos no diretório
-func listFiles() {
-	files, err := os.ReadDir(".")
+	// Escreve conteúdo aleatório no arquivo
+	_, err = file.WriteString("Conteúdo aleatório gerado para o arquivo.")
 	if err != nil {
-		fmt.Println("Erro ao listar arquivos:", err)
+		fmt.Println("Erro ao escrever no arquivo:", err)
 		return
 	}
 
-	if len(files) == 0 {
-		fmt.Println("Não há arquivos no diretório.")
-	} else {
-		fmt.Println("Arquivos no diretório atual:")
-		for _, file := range files {
-			fmt.Println(file.Name())
+	fmt.Println("Arquivo criado com sucesso em:", caminho)
+}
+
+func criarDiretorio(caminho string) {
+	// Criação do diretório
+	err := os.MkdirAll(caminho, os.ModePerm)
+	if err != nil {
+		fmt.Println("Erro ao criar o diretório:", err)
+		return
+	}
+	fmt.Println("Diretório criado com sucesso em:", caminho)
+}
+
+func apagarArquivo(caminho string) {
+	// Remove o arquivo
+	err := os.Remove(caminho)
+	if err != nil {
+		fmt.Println("Erro ao apagar o arquivo:", err)
+		return
+	}
+	fmt.Println("Arquivo apagado com sucesso:", caminho)
+}
+
+func apagarDiretorio(caminho string, force bool) {
+	// Se for para apagar forçadamente (mesmo com arquivos dentro), usa RemoveAll
+	if force {
+		err := os.RemoveAll(caminho)
+		if err != nil {
+			fmt.Println("Erro ao apagar diretório forçadamente:", err)
+			return
 		}
+		fmt.Println("Diretório apagado com sucesso (forçadamente):", caminho)
+	} else {
+		// Caso contrário, só apaga se estiver vazio
+		err := os.Remove(caminho)
+		if err != nil {
+			fmt.Println("Erro ao tentar apagar diretório:", err)
+			return
+		}
+		fmt.Println("Diretório apagado com sucesso:", caminho)
 	}
-}
-
-// Função para apagar um arquivo
-func deleteFile(user *User, filePath string) {
-	err := os.Remove(filePath)
-	if err != nil {
-		fmt.Println("Erro ao apagar arquivo:", err)
-		return
-	}
-
-	fmt.Printf("Arquivo %s apagado com sucesso!\n", filePath)
-}
-
-// Função para criar diretórios (incluindo diretórios aninhados)
-func createDir(user *User, dirPath string) {
-	// Cria diretórios e subdiretórios se não existirem
-	err := os.MkdirAll(dirPath, os.ModePerm)
-	if err != nil {
-		fmt.Println("Erro ao criar diretórios:", err)
-		return
-	}
-
-	fmt.Printf("Diretório %s criado com sucesso!\n", dirPath)
 }
