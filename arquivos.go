@@ -3,63 +3,48 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
-func criarArquivo(caminho string) {
-	// Criação do arquivo
+// CriarArquivo ou diretório.
+func CriarArquivo(caminho string) {
+	err := os.MkdirAll(filepath.Dir(caminho), os.ModePerm)
+	if err != nil {
+		fmt.Println("Erro ao criar diretório:", err)
+		return
+	}
+
 	file, err := os.Create(caminho)
 	if err != nil {
-		fmt.Println("Erro ao criar o arquivo:", err)
+		fmt.Println("Erro ao criar arquivo:", err)
 		return
 	}
 	defer file.Close()
 
-	// Escreve conteúdo aleatório no arquivo
-	_, err = file.WriteString("Conteúdo aleatório gerado para o arquivo.")
+	fmt.Println("Arquivo criado com sucesso:", caminho)
+}
+
+// ApagarArquivo apaga um arquivo ou diretório.
+func ApagarArquivo(caminho string) {
+	err := os.RemoveAll(caminho)
 	if err != nil {
-		fmt.Println("Erro ao escrever no arquivo:", err)
+		fmt.Println("Erro ao apagar arquivo/diretório:", err)
 		return
 	}
 
-	fmt.Println("Arquivo criado com sucesso em:", caminho)
+	fmt.Println("Arquivo/diretório apagado com sucesso:", caminho)
 }
 
-func criarDiretorio(caminho string) {
-	// Criação do diretório
-	err := os.MkdirAll(caminho, os.ModePerm)
-	if err != nil {
-		fmt.Println("Erro ao criar o diretório:", err)
-		return
-	}
-	fmt.Println("Diretório criado com sucesso em:", caminho)
-}
-
-func apagarArquivo(caminho string) {
-	// Remove o arquivo
-	err := os.Remove(caminho)
-	if err != nil {
-		fmt.Println("Erro ao apagar o arquivo:", err)
-		return
-	}
-	fmt.Println("Arquivo apagado com sucesso:", caminho)
-}
-
-func apagarDiretorio(caminho string, force bool) {
-	// Se for para apagar forçadamente (mesmo com arquivos dentro), usa RemoveAll
-	if force {
-		err := os.RemoveAll(caminho)
+// ListarArquivos lista todos os arquivos no diretório do usuário.
+func ListarArquivos(diretorio string) {
+	err := filepath.Walk(diretorio, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			fmt.Println("Erro ao apagar diretório forçadamente:", err)
-			return
+			return err
 		}
-		fmt.Println("Diretório apagado com sucesso (forçadamente):", caminho)
-	} else {
-		// Caso contrário, só apaga se estiver vazio
-		err := os.Remove(caminho)
-		if err != nil {
-			fmt.Println("Erro ao tentar apagar diretório:", err)
-			return
-		}
-		fmt.Println("Diretório apagado com sucesso:", caminho)
+		fmt.Println(path)
+		return nil
+	})
+	if err != nil {
+		fmt.Println("Erro ao listar arquivos:", err)
 	}
 }
