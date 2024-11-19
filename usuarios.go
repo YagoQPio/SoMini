@@ -1,36 +1,133 @@
 package main
 
 import (
-    "fmt"
-    "os"
+	"bufio"
+	"crypto/sha512"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"strings"
 )
 
-// Variável global que armazena o usuário logado atualmente
-var usuarioAtual string
+const userFile = "users.txt"
 
-func main() {
-    for {
-        fmt.Println("Mini SO - Menu Principal")
-        fmt.Println("1. Criar Usuário")
-        fmt.Println("2. Login")
-        fmt.Println("3. Fechar Programa")
-        fmt.Print("Escolha uma opção: ")
+// CriarUsuario cria um novo usuário e salva no arquivo.
+func CriarUsuario() {
+	fmt.Println("\n== Criar Novo Usuário ==")
 
-        var opcao int
-        fmt.Scan(&opcao)
+	fmt.Print("Digite o nome de usuário: ")
+	var username string
+	fmt.Scanln(&username)
 
-        switch opcao {
-        case 1:
-            CriarUsuario()
-        case 2:
-            if Login() {
-                MenuUsuario()
-            }
-        case 3:
-            fmt.Println("Encerrando o programa...")
-            os.Exit(0)
-        default:
-            fmt.Println("Opção inválida!")
-        }
-    }
+	// Validar se o nome do usuário não está vazio
+	if strings.TrimSpace(username) == "" {
+		fmt.Println("O nome de usuário não pode estar vazio.")
+		return
+	}
+
+	// Verificar se o usuário já existe
+	if verificarUsuarioExiste(username) {
+		fmt.Println("Usuário já existe. Escolha outro nome.")
+		return
+	}
+
+	fmt.Print("Digite a senha: ")
+	var senha string
+	fmt.Scanln(&senha)
+
+	// Aplicar hash na senha
+	senhaHashed := gerarHashSHA512(senha)
+
+	// Salvar o usuário no arquivo
+	if salvarUsuario(username, senhaHashed) {
+		fmt.Println("Usuário criado com sucesso!")
+	} else {
+		fmt.Println("Erro ao criar usuário.")
+	}
+}
+
+// Login autentica o usuário com base no arquivo.
+func Login() bool {
+	fmt.Println("\n== Logar ==")
+
+	fmt.Print("Digite o nome de usuário: ")
+	var username string
+	fmt.Scanln(&username)
+
+	fmt.Print("Digite a senha: ")
+	var senha string
+	fmt.Scanln(&senha)
+
+	// Aplica o hash na senha
+	senhaHashed := gerarHashSHA512(senha)
+
+	// Verificar credenciais
+	if autenticarUsuario(username, senhaHashed) {
+		usuarioAtual = username // Atualiza o usuário logado
+		fmt.Println("Login realizado com sucesso!")
+		return true
+	}
+
+	fmt.Println("Usuário ou senha incorretos.")
+	return false
+}
+
+// gerarHashSHA512 gera o hash da senha usando SHA-512.
+func gerarHashSHA512(senha string) string {
+	hash := sha512.New()
+	hash.Write([]byte(senha))
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
+// salvarUsuario salva os dados do usuário no arquivo.
+func salvarUsuario(username, senhaHashed string) bool {
+	file, err := os.OpenFile(userFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Println("Erro ao abrir arquivo de usuários:", err)
+		return false
+	}
+	defer file.Close()
+
+	_, err = file.WriteString(fmt.Sprintf("%s:%s\n", username, senhaHashed))
+	return err == nil
+}
+
+// autenticarUsuario verifica se as credenciais estão no arquivo.
+func autenticarUsuario(username, senhaHashed string) bool {
+	file, err := os.Open(userFile)
+	if err != nil {
+		fmt.Println("Erro ao abrir arquivo de usuários:", err)
+		return false
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		parts := strings.Split(scanner.Text(), ":")
+		if len(parts) == 2 && parts[0] == username && parts[1] == senhaHashed {
+			return true
+		}
+	}
+
+	return false
+}
+
+// verificarUsuarioExiste verifica se um nome de usuário já está cadastrado.
+func verificarUsuarioExiste(username string) bool {
+	file, err := os.Open(userFile)
+	if err != nil {
+		fmt.Println("Erro ao abrir arquivo de usuários:", err)
+		return false
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		parts := strings.Split(scanner.Text(), ":")
+		if len(parts) > 0 && parts[0] == username {
+			return true
+		}
+	}
+
+	return false
 }
