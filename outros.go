@@ -1,39 +1,55 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"os"
+	"strings"
 )
 
 // MenuUsuario gerencia as opções disponíveis para o usuário logado.
 func MenuUsuario() {
+	scanner := bufio.NewScanner(os.Stdin) // Scanner para capturar linhas completas de entrada
 	for {
 		fmt.Println("\nMenu do Usuário")
 		fmt.Println("1. Criar Arquivo/Diretório")
 		fmt.Println("2. Apagar Arquivo/Diretório")
-		fmt.Println("3. Listar Arquivos/Diretórios")
-		fmt.Println("4. Logout")
-		fmt.Print("Escolha uma opção: ")
+		fmt.Println("3. Listar Todos os Arquivos Criados por Usuários")
+		fmt.Println("4. Apagar Diretório com --force")
+		fmt.Println("5. Logout")
+		fmt.Print("Escolha uma opção (ou insira um comando direto como 'apagar diretorio <caminho> --force'): ")
 
-		var opcao int
-		fmt.Scan(&opcao)
+		// Lê a entrada completa do usuário
+		scanner.Scan()
+		entrada := scanner.Text()
+		entrada = strings.TrimSpace(entrada) // Remove espaços extras
 
-		switch opcao {
-		case 1:
+		// Verifica se o comando é "apagar diretorio ... --force"
+		if strings.HasPrefix(entrada, "apagar diretorio") && strings.HasSuffix(entrada, "--force") {
+			ApagarDiretorioForce(entrada)
+			continue
+		}
+
+		// Processa opções numéricas
+		switch entrada {
+		case "1":
 			fmt.Print("Digite o caminho do arquivo ou diretório a ser criado: ")
-			var caminho string
-			fmt.Scan(&caminho)
-			CriarArquivo(caminho) // Certifique-se que esta função é exportada
-		case 2:
+			scanner.Scan()
+			caminho := scanner.Text()
+			CriarArquivo(caminho)
+		case "2":
 			fmt.Print("Digite o caminho do arquivo ou diretório a ser apagado: ")
-			var caminho string
-			fmt.Scan(&caminho)
-			ApagarArquivo(caminho) // Certifique-se que esta função é exportada
-		case 3:
-			fmt.Print("Digite o diretório para listar os arquivos: ")
-			var diretorio string
-			fmt.Scan(&diretorio)
-			ListarArquivos(diretorio) // Certifique-se que esta função é exportada
-		case 4:
+			scanner.Scan()
+			caminho := scanner.Text()
+			ApagarArquivo(caminho)
+		case "3":
+			ListarTodosArquivos()
+		case "4":
+			fmt.Print("Digite o caminho do diretório a ser apagado com --force: ")
+			scanner.Scan()
+			comando := "apagar diretorio " + scanner.Text() + " --force"
+			ApagarDiretorioForce(comando)
+		case "5":
 			fmt.Println("Saindo do menu do usuário...")
 			return
 		default:
