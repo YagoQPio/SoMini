@@ -2,32 +2,40 @@ package main
 
 import (
 	"fmt"
-	"os"
 )
 
 func main() {
 	for {
-		fmt.Println("Mini SO - Menu Principal")
-		fmt.Println("1. Criar Usuário")
-		fmt.Println("2. Login")
-		fmt.Println("3. Fechar Programa")
-		fmt.Print("Escolha uma opção: ")
+		if !temUsuarios() {
+			fmt.Println("Nenhum usuário encontrado. Criando o primeiro usuário...")
+			criarUsuario()
+		} else {
+			fmt.Println("\nBem-vindo ao MiniSO!")
+			fmt.Println("Escolha uma opção:")
+			fmt.Println("1. Criar Usuário")
+			fmt.Println("2. Login")
+			fmt.Println("3. Apagar Usuário")
+			fmt.Println("4. Sair")
 
-		var opcao int
-		fmt.Scan(&opcao)
+			var opcao int
+			fmt.Print("Opção: ")
+			fmt.Scanln(&opcao)
 
-		switch opcao {
-		case 1:
-			CriarUsuario()
-		case 2:
-			if Login() {
-				MenuUsuario()
+			switch opcao {
+			case 1:
+				criarUsuario()
+			case 2:
+				if login() {
+					menuPrincipal()
+				}
+			case 3:
+				apagarUsuario()
+			case 4:
+				fmt.Println("Saindo do MiniSO.")
+				return
+			default:
+				fmt.Println("Opção inválida. Tente novamente.")
 			}
-		case 3:
-			fmt.Println("Encerrando o programa...")
-			os.Exit(0)
-		default:
-			fmt.Println("Opção inválida!")
 		}
 	}
 }
