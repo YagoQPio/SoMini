@@ -47,7 +47,7 @@ func CarregarUsuarios() ([]Usuario, error) {
 func SalvarUsuarios(usuarios []Usuario) error {
 	file, err := os.Create(arquivoUsuarios)
 	if err != nil {
-		return err
+		return fmt.Errorf("erro ao salvar usuários: %v", err)
 	}
 	defer file.Close()
 
@@ -91,9 +91,9 @@ func CapturarSenha(mensagem string) (string, error) {
 	}
 }
 
-// Cria o primeiro usuário
+// Cria um novo usuário, mantendo os usuários existentes
 func CriarUsuario() error {
-	fmt.Println("Nenhum usuário cadastrado. Crie um novo usuário.")
+	fmt.Println("Adicionando um novo usuário.")
 
 	fmt.Print("Digite o nome de usuário: ")
 	var username string
@@ -112,16 +112,37 @@ func CriarUsuario() error {
 		return fmt.Errorf("a senha não pode ser vazia")
 	}
 
+	// Gera salt e hash para a senha
 	salt, err := GerarSalt()
 	if err != nil {
 		return fmt.Errorf("erro ao gerar salt: %v", err)
 	}
 	hashSenha := GerarHashSenha(senha, salt)
 
-	usuario := Usuario{Username: username, Password: hashSenha, Salt: salt}
-	usuarios := []Usuario{usuario}
+	// Carrega usuários existentes
+	usuarios, err := CarregarUsuarios()
+	if err != nil {
+		return fmt.Errorf("erro ao carregar usuários existentes: %v", err)
+	}
 
-	return SalvarUsuarios(usuarios)
+	// Verifica se o nome de usuário já existe
+	for _, usuario := range usuarios {
+		if usuario.Username == username {
+			return fmt.Errorf("o nome de usuário '%s' já está em uso", username)
+		}
+	}
+
+	// Adiciona o novo usuário à lista
+	novoUsuario := Usuario{Username: username, Password: hashSenha, Salt: salt}
+	usuarios = append(usuarios, novoUsuario)
+
+	// Salva todos os usuários novamente no arquivo
+	err = SalvarUsuarios(usuarios)
+	if err != nil {
+		return fmt.Errorf("erro ao salvar usuários no arquivo: %v", err)
+	}
+
+	return nil
 }
 
 // Login de usuário
