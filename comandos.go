@@ -10,42 +10,73 @@ import (
 // Processa comandos do shell
 func processarComando(comando, usuario string) error {
 	parts := strings.Fields(comando)
-	if len(parts) < 1 {
-		return fmt.Errorf("comando inválido. Use: criar/apagar/listar/adicionar_usuario <caminho>")
+	if len(parts) < 3 || parts[1] != "arquivo" {
+		return fmt.Errorf("uso: criar/apagar arquivo <caminho>")
 	}
 
 	switch parts[0] {
-	case "adicionar_usuario":
-		return CriarUsuario()
 	case "criar":
-		if len(parts) < 2 {
-			return fmt.Errorf("uso: criar <caminho_do_arquivo>")
+		caminho := parts[2]
+		if strings.HasSuffix(caminho, "/") {
+			// Criar diretório com permissões
+			err := CriarDiretorio(caminho, usuario)
+			if err != nil {
+				return err
+			}
+			// Registrar permissão para o usuário
+			return RegistrarPermissao(caminho, usuario)
 		}
-		return CriarArquivo(parts[1], usuario)
+		// Criar arquivo com permissões
+		err := CriarArquivo(caminho, usuario)
+		if err != nil {
+			return err
+		}
+		// Registrar permissão para o usuário
+		return RegistrarPermissao(caminho, usuario)
+
 	case "apagar":
-		if len(parts) < 2 {
-			return fmt.Errorf("uso: apagar <caminho>")
+		caminho := parts[2]
+		force := len(parts) > 3 && parts[3] == "--force"
+
+		// Verificar permissões antes de apagar
+		ehProprietario, err := VerificarPermissao(caminho, usuario)
+		if err != nil {
+			return fmt.Errorf("erro ao verificar permissões: %v", err)
 		}
-		if strings.HasPrefix(parts[1], "diretorio") {
-			force := len(parts) > 2 && parts[2] == "--force"
-			return ApagarDiretorio(parts[1], usuario, force)
+		if !ehProprietario {
+			return fmt.Errorf("usuário %s não tem permissão para apagar %s", usuario, caminho)
 		}
-		return ApagarArquivo(parts[1], usuario)
+
+		// Apagar diretório ou arquivo
+		if strings.HasSuffix(caminho, "/") {
+			return ApagarDiretorio(caminho, usuario, force)
+		}
+		return ApagarArquivo(caminho, usuario)
+
 	case "listar":
-		caminho := "."
-		if len(parts) >= 2 {
-			caminho = parts[1]
+		caminho := parts[2]
+
+		// Verificar permissões antes de listar
+		_, err := VerificarPermissao(caminho, usuario)
+		if err != nil {
+			return fmt.Errorf("erro ao verificar permissões: %v", err)
 		}
+
+		// Listar conteúdo de diretório
 		return ListarDiretorio(caminho)
-	case "criar_dir":
-		if len(parts) < 2 {
-			return fmt.Errorf("uso: criar_dir <caminho_do_diretorio>")
-		}
-		return CriarDiretorio(parts[1], usuario)
+
 	default:
+		// Caso não seja um comando conhecido, tenta executar como comando externo
 		cmd := exec.Command(parts[0], parts[1:]...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		cmd.Stdin = os.Stdin
+
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("erro ao iniciar o processo: %v", err)
+		}
+		fmt.Printf("Processo iniciado com PID: %d\n", cmd.Process.Pid)
+
+		return cmd.Wait()
 	}
 }
