@@ -1,118 +1,32 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
-
-type Arquivo struct {
-	Path    string `json:"path"`
-	Criador string `json:"criador"`
-}
-
-const arquivoPermissoes = "permissoes.json"
-
-// Carrega as permissões do arquivo
-func CarregarPermissoes() ([]Arquivo, error) {
-	var arquivos []Arquivo
-	file, err := os.Open(arquivoPermissoes)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []Arquivo{}, nil
-		}
-		return nil, err
-	}
-	defer file.Close()
-
-	err = json.NewDecoder(file).Decode(&arquivos)
-	return arquivos, err
-}
-
-// Salva as permissões no arquivo
-func SalvarPermissoes(arquivos []Arquivo) error {
-	file, err := os.Create(arquivoPermissoes)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	return json.NewEncoder(file).Encode(arquivos)
-}
-
-// Adiciona um arquivo/diretório às permissões
-func AdicionarPermissao(caminho string, usuario string) error {
-	arquivos, err := CarregarPermissoes()
-	if err != nil {
-		return err
-	}
-
-	for _, a := range arquivos {
-		if a.Path == caminho {
-			return fmt.Errorf("o arquivo/diretório já existe nas permissões")
-		}
-	}
-
-	arquivos = append(arquivos, Arquivo{Path: caminho, Criador: usuario})
-	return SalvarPermissoes(arquivos)
-}
-
-// Verifica permissões de acesso
-func VerificarPermissao(caminho string, usuario string) error {
-	arquivos, err := CarregarPermissoes()
-	if err != nil {
-		return err
-	}
-
-	for _, a := range arquivos {
-		if a.Path == caminho {
-			if a.Criador != usuario {
-				return fmt.Errorf("você não tem permissão para acessar: %s", caminho)
-			}
-			return nil
-		}
-	}
-	return fmt.Errorf("o arquivo/diretório não existe")
-}
 
 // Função para criar arquivos
 func CriarArquivo(caminho string, usuario string) error {
 	dir := filepath.Dir(caminho)
-
-	// Cria os diretórios necessários
 	if dir != "." {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return fmt.Errorf("erro ao criar diretórios: %v", err)
-		}
-	}
-
-	// Verifica permissões no arquivo (se já existe)
-	if _, err := os.Stat(caminho); err == nil {
-		// O arquivo já existe, verifica permissões
-		if err := VerificarPermissao(caminho, usuario); err != nil {
-			return err
+		// Cria o diretório se necessário
+		if err := CriarDiretorio(dir, usuario); err != nil {
+			return fmt.Errorf("erro ao criar diretórios para o arquivo: %v", err)
 		}
 	}
 
 	// Cria o arquivo
 	file, err := os.Create(caminho)
 	if err != nil {
-		return fmt.Errorf("erro ao criar arquivo: %v", err)
+		return err
 	}
 	defer file.Close()
 
-	// Escreve conteúdo inicial no arquivo
+	// Escreve informações sobre o arquivo
 	_, err = file.WriteString(fmt.Sprintf("Criado pelo usuário %s.\n", usuario))
 	if err != nil {
 		return fmt.Errorf("erro ao escrever no arquivo: %v", err)
-	}
-
-	// Adiciona permissões para o novo arquivo
-	err = AdicionarPermissao(caminho, usuario)
-	if err != nil {
-		return fmt.Errorf("erro ao adicionar permissões: %v", err)
 	}
 
 	fmt.Printf("Arquivo criado com sucesso: %s\n", caminho)
@@ -121,12 +35,11 @@ func CriarArquivo(caminho string, usuario string) error {
 
 // Função para apagar arquivos
 func ApagarArquivo(caminho string, usuario string) error {
-	err := VerificarPermissao(caminho, usuario)
-	if err != nil {
-		return err
+	if _, err := os.Stat(caminho); os.IsNotExist(err) {
+		return fmt.Errorf("o arquivo/diretório não existe: %s", caminho)
 	}
 
-	err = os.Remove(caminho)
+	err := os.Remove(caminho)
 	if err != nil {
 		return fmt.Errorf("erro ao apagar arquivo: %v", err)
 	}
@@ -155,54 +68,42 @@ func ListarDiretorio(caminho string) error {
 
 // Função para criar diretórios
 func CriarDiretorio(caminho string, usuario string) error {
-	err := os.MkdirAll(caminho, 0755)
-	if err != nil {
+	if err := os.MkdirAll(caminho, 0755); err != nil {
 		return fmt.Errorf("erro ao criar diretório: %v", err)
 	}
 
-	err = AdicionarPermissao(caminho, usuario)
-	if err != nil {
-		return fmt.Errorf("erro ao adicionar permissões ao diretório: %v", err)
-	}
-
-	fmt.Printf("Diretório criado com sucesso: %s\n", caminho)
+	fmt.Printf("Diretório criado com sucesso por %s: %s\n", usuario, caminho)
 	return nil
 }
 
 // Função para apagar diretórios
 func ApagarDiretorio(caminho string, usuario string, force bool) error {
-	err := VerificarPermissao(caminho, usuario)
-	if err != nil {
-		return err
+	if _, err := os.Stat(caminho); os.IsNotExist(err) {
+		return fmt.Errorf("o diretório não existe: %s", caminho)
 	}
 
 	if force {
-		err = os.RemoveAll(caminho)
-	} else {
-		err = os.Remove(caminho)
-	}
-
-	if err != nil {
-		return fmt.Errorf("erro ao apagar diretório: %v", err)
-	}
-
-	arquivos, err := CarregarPermissoes()
-	if err != nil {
-		return err
-	}
-
-	var arquivosAtualizados []Arquivo
-	for _, a := range arquivos {
-		if !strings.HasPrefix(a.Path, caminho) {
-			arquivosAtualizados = append(arquivosAtualizados, a)
+		err := os.RemoveAll(caminho)
+		if err != nil {
+			return fmt.Errorf("erro ao apagar diretório: %v", err)
 		}
+		fmt.Printf("Diretório apagado com sucesso por %s: %s\n", usuario, caminho)
+	} else {
+		// Verifica se está vazio antes de apagar
+		entries, err := os.ReadDir(caminho)
+		if err != nil {
+			return fmt.Errorf("erro ao verificar conteúdo do diretório: %v", err)
+		}
+		if len(entries) > 0 {
+			return fmt.Errorf("o diretório não está vazio. Use --force para apagar.")
+		}
+
+		err = os.Remove(caminho)
+		if err != nil {
+			return fmt.Errorf("erro ao apagar diretório: %v", err)
+		}
+		fmt.Printf("Diretório apagado com sucesso por %s: %s\n", usuario, caminho)
 	}
 
-	err = SalvarPermissoes(arquivosAtualizados)
-	if err != nil {
-		return fmt.Errorf("erro ao atualizar permissões: %v", err)
-	}
-
-	fmt.Printf("Diretório apagado com sucesso por %s: %s\n", usuario, caminho)
 	return nil
 }
