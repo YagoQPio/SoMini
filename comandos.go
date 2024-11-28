@@ -2,81 +2,78 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"strings"
 )
 
 // Processa comandos do shell
-func processarComando(comando, usuario string) error {
-	parts := strings.Fields(comando)
-	if len(parts) < 3 || parts[1] != "arquivo" {
-		return fmt.Errorf("uso: criar/apagar arquivo <caminho>")
+func processarComando(entrada string, usuarioAtual string) error {
+	// Divide a entrada do comando em partes
+	partes := strings.Fields(entrada)
+	if len(partes) < 2 {
+		return fmt.Errorf("[ERRO] Comando inválido. Uso: criar diretorio <nomeDiretorio>")
 	}
 
-	switch parts[0] {
-	case "criar":
-		caminho := parts[2]
-		if strings.HasSuffix(caminho, "/") {
-			// Criar diretório com permissões
-			err := CriarDiretorio(caminho, usuario)
-			if err != nil {
-				return err
-			}
-			// Registrar permissão para o usuário
-			return RegistrarPermissao(caminho, usuario)
+	comando := partes[0]     // Comando principal (ex: criar, apagar)
+	subcomando := partes[1]  // Subcomando (ex: diretorio, arquivo)
+	argumentos := partes[2:] // Argumentos adicionais (ex: nome do diretório ou arquivo)
+
+	// Comando para criar um diretório
+	if comando == "criar" && subcomando == "diretorio" {
+		if len(argumentos) < 1 {
+			return fmt.Errorf("[ERRO] Nome do diretório não fornecido. Uso: criar diretorio <nomeDiretorio>")
 		}
-		// Criar arquivo com permissões
-		err := CriarArquivo(caminho, usuario)
+		nomeDiretorio := argumentos[0]
+		err := CriarDiretorio(nomeDiretorio, usuarioAtual)
 		if err != nil {
-			return err
+			return fmt.Errorf("[ERRO] Falha ao criar diretório: %v", err)
 		}
-		// Registrar permissão para o usuário
-		return RegistrarPermissao(caminho, usuario)
-
-	case "apagar":
-		caminho := parts[2]
-		force := len(parts) > 3 && parts[3] == "--force"
-
-		// Verificar permissões antes de apagar
-		ehProprietario, err := VerificarPermissao(caminho, usuario)
-		if err != nil {
-			return fmt.Errorf("erro ao verificar permissões: %v", err)
-		}
-		if !ehProprietario {
-			return fmt.Errorf("usuário %s não tem permissão para apagar %s", usuario, caminho)
-		}
-
-		// Apagar diretório ou arquivo
-		if strings.HasSuffix(caminho, "/") {
-			return ApagarDiretorio(caminho, usuario, force)
-		}
-		return ApagarArquivo(caminho, usuario)
-
-	case "listar":
-		caminho := parts[2]
-
-		// Verificar permissões antes de listar
-		_, err := VerificarPermissao(caminho, usuario)
-		if err != nil {
-			return fmt.Errorf("erro ao verificar permissões: %v", err)
-		}
-
-		// Listar conteúdo de diretório
-		return ListarDiretorio(caminho)
-
-	default:
-		// Caso não seja um comando conhecido, tenta executar como comando externo
-		cmd := exec.Command(parts[0], parts[1:]...)
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		cmd.Stdin = os.Stdin
-
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("erro ao iniciar o processo: %v", err)
-		}
-		fmt.Printf("Processo iniciado com PID: %d\n", cmd.Process.Pid)
-
-		return cmd.Wait()
+		fmt.Printf("[SUCESSO] Diretório criado: %s\n", nomeDiretorio)
+		return nil
 	}
+
+	// Comando para criar um arquivo
+	if comando == "criar" && subcomando == "arquivo" {
+		if len(argumentos) < 1 {
+			return fmt.Errorf("[ERRO] Nome do arquivo não fornecido. Uso: criar arquivo <nomeArquivo>")
+		}
+		nomeArquivo := argumentos[0]
+		err := CriarArquivo(nomeArquivo, usuarioAtual)
+		if err != nil {
+			return fmt.Errorf("[ERRO] Falha ao criar arquivo: %v", err)
+		}
+		fmt.Printf("[SUCESSO] Arquivo criado: %s\n", nomeArquivo)
+		return nil
+	}
+
+	// Comando para apagar um diretório
+	if comando == "apagar" && subcomando == "diretorio" {
+		if len(argumentos) < 1 {
+			return fmt.Errorf("[ERRO] Caminho do diretório não fornecido. Uso: apagar diretorio <caminho> [--force]")
+		}
+		caminho := argumentos[0]
+		force := len(argumentos) > 1 && argumentos[1] == "--force"
+		err := ApagarDiretorio(caminho, usuarioAtual, force)
+		if err != nil {
+			return fmt.Errorf("[ERRO] Falha ao apagar diretório: %v", err)
+		}
+		fmt.Printf("[SUCESSO] Diretório apagado: %s\n", caminho)
+		return nil
+	}
+
+	// Comando para apagar um arquivo
+	if comando == "apagar" && subcomando == "arquivo" {
+		if len(argumentos) < 1 {
+			return fmt.Errorf("[ERRO] Caminho do arquivo não fornecido. Uso: apagar arquivo <caminho>")
+		}
+		caminho := argumentos[0]
+		err := ApagarArquivo(caminho, usuarioAtual)
+		if err != nil {
+			return fmt.Errorf("[ERRO] Falha ao apagar arquivo: %v", err)
+		}
+		fmt.Printf("[SUCESSO] Arquivo apagado: %s\n", caminho)
+		return nil
+	}
+
+	// Comando não reconhecido
+	return fmt.Errorf("[ERRO] Comando não reconhecido.")
 }
